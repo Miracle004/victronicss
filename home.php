@@ -1,35 +1,25 @@
 <?php
 session_start();
-// Database connection
-$servername = "localhost"; 
-$db_username = "root"; 
-$db_password = ""; 
-$dbname = "employment"; 
-
-$conn = new mysqli($servername, $db_username, $db_password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 // Assuming user is logged in and username is stored in session
 $current_user = $_SESSION['username'];
 
 // Fetch the user's full name from the database
-$sql = "SELECT empName FROM employees WHERE username = '$current_user'";
-$result = $conn->query($sql);
-$user_full_name = 'John Doe'; // Default value in case no result
-if ($result->num_rows > 0) {
-    $row = $result->fetch_assoc();
+$sql = "SELECT empName FROM employees WHERE username = :username";
+$stmt = $db->prepare($sql);
+$stmt->execute([':username' => $current_user]);
+$user_full_name = 'John Doe';
+if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $user_full_name = $row['empName'];
 }
 
 // Fetch tasks assigned to the user and count them based on their status
-$sql_tasks = "SELECT status FROM tasks WHERE assigned_to = '$current_user'";
-$tasks_result = $conn->query($sql_tasks);
+$sql_tasks = "SELECT status FROM tasks WHERE assigned_to = :username";
+$stmt_tasks = $db->prepare($sql_tasks);
+$stmt_tasks->execute([':username' => $current_user]);
+$tasks = $stmt_tasks->fetchAll(PDO::FETCH_ASSOC);
 
-// Initialize task counts
 $task_count = [
     'total' => 0,
     'Accepted' => 0,
@@ -37,8 +27,7 @@ $task_count = [
     'Pending' => 0
 ];
 
-// Count tasks by status
-while ($task = $tasks_result->fetch_assoc()) {
+foreach ($tasks as $task) {
     $task_count['total']++;
     switch ($task['status']) {
         case 'accepted':
@@ -52,9 +41,8 @@ while ($task = $tasks_result->fetch_assoc()) {
             break;
     }
 }
-
-$conn->close();
 ?>
+
 
 <link rel="stylesheet" href="style.css">
 

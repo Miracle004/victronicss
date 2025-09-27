@@ -1,34 +1,28 @@
 <?php
 session_start();
-// Database connection
-$servername = "localhost"; 
-$db_username = "root"; 
-$db_password = ""; 
-$dbname = "employment"; 
-
-$conn = new mysqli($servername, $db_username, $db_password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 // Fetch all users for task assignment
 $sql_users = "SELECT username, empName FROM employees";
-$users_result = $conn->query($sql_users);
+$users_result = $db->query($sql_users);
+$users_result = $users_result->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle task creation form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $task_description = $_POST['task_description'];
     $assigned_to = $_POST['assigned_to'];
-    $status = 'pending'; // New task starts as pending
+    $status = 'pending';
 
-    // Insert the new task into the tasks table
-    $insert_sql = "INSERT INTO tasks (task_description, assigned_to, status) VALUES ('$task_description', '$assigned_to', '$status')";
-    if ($conn->query($insert_sql) === TRUE) {
+    $insert_sql = "INSERT INTO tasks (task_description, assigned_to, status) VALUES (:task_description, :assigned_to, :status)";
+    $stmt = $db->prepare($insert_sql);
+    if ($stmt->execute([
+        ':task_description' => $task_description,
+        ':assigned_to' => $assigned_to,
+        ':status' => $status
+    ])) {
         $_SESSION['task_message'] = "Task created successfully.";
     } else {
-        $_SESSION['task_message'] = "Error creating task: " . $conn->error;
+        $_SESSION['task_message'] = "Error creating task.";
     }
 
     header("Location: admin_dashboard.php");
@@ -39,10 +33,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $sql_tasks = "SELECT t.task_id, t.task_description, t.status, e.empName 
               FROM tasks t 
               JOIN employees e ON t.assigned_to = e.username";
-$tasks_result = $conn->query($sql_tasks);
-
-$conn->close();
+$tasks_result = $db->query($sql_tasks);
+$tasks_result = $tasks_result->fetchAll(PDO::FETCH_ASSOC);
 ?>
+
 
 <link rel="stylesheet" href="style.css">
 
@@ -81,11 +75,11 @@ $conn->close();
 
           <label for="assigned_to">Assign To:</label>
           <select name="assigned_to" id="assigned_to" required>
-            <?php while ($user = $users_result->fetch_assoc()): ?>
+            <?php foreach ($users_result as $user): ?>
               <option value="<?php echo htmlspecialchars($user['username']); ?>">
                 <?php echo htmlspecialchars($user['empName']); ?>
               </option>
-            <?php endwhile; ?>
+            <?php endforeach; ?>
           </select>
 
           <button type="submit" class="task-submit-btn">Create Task</button>
@@ -94,7 +88,7 @@ $conn->close();
         <!-- Display tasks if any -->
         <div class="task-list-section">
           <h2>Task List</h2>
-          <?php if ($tasks_result->num_rows > 0): ?>
+          <?php if (count($tasks_result) > 0): ?>
             <table class="task-table">
               <thead>
                 <tr>
@@ -105,14 +99,14 @@ $conn->close();
                 </tr>
               </thead>
               <tbody>
-                <?php while ($task = $tasks_result->fetch_assoc()): ?>
+                <?php foreach ($tasks_result as $task): ?>
                   <tr>
                     <td><?php echo $task['task_id']; ?></td>
                     <td><?php echo htmlspecialchars($task['task_description']); ?></td>
                     <td><?php echo htmlspecialchars($task['empName']); ?></td>
                     <td><?php echo htmlspecialchars($task['status']); ?></td>
                   </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
               </tbody>
             </table>
           <?php else: ?>

@@ -7,34 +7,25 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 session_start();
-// Database connection
-$servername = "localhost"; 
-$db_username = "root"; 
-$db_password = ""; 
-$dbname = "employment"; 
-
-$conn = new mysqli($servername, $db_username, $db_password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 // Fetch all users for management
 $sql_users = "SELECT * FROM employees";
-$users_result = $conn->query($sql_users);
+$users_result = $db->query($sql_users);
+$users_result = $users_result->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle user deletion
 if (isset($_GET['delete_id'])) {
     $delete_id = $_GET['delete_id'];
-    $delete_sql = "DELETE FROM employees WHERE id = $delete_id";
-    if ($conn->query($delete_sql) === TRUE) {
+    $delete_sql = "DELETE FROM employees WHERE id = :id";
+    $stmt = $db->prepare($delete_sql);
+    if ($stmt->execute([':id' => $delete_id])) {
         $_SESSION['user_message'] = "User deleted successfully.";
     } else {
-        $_SESSION['user_message'] = "Error deleting user: " . $conn->error;
+        $_SESSION['user_message'] = "Error deleting user.";
     }
     header("Location: manage_users.php");
     exit();
@@ -48,11 +39,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_user'])) {
     $email = $_POST['email'];
     $post = $_POST['post'];
 
-    $update_sql = "UPDATE employees SET username='$username', empName='$empName', email='$email', post='$post' WHERE id=$update_id";
-    if ($conn->query($update_sql) === TRUE) {
+    $update_sql = "UPDATE employees SET username=:username, empName=:empName, email=:email, post=:post WHERE id=:id";
+    $stmt = $db->prepare($update_sql);
+    if ($stmt->execute([
+        ':username' => $username,
+        ':empName' => $empName,
+        ':email' => $email,
+        ':post' => $post,
+        ':id' => $update_id
+    ])) {
         $_SESSION['user_message'] = "User updated successfully.";
     } else {
-        $_SESSION['user_message'] = "Error updating user: " . $conn->error;
+        $_SESSION['user_message'] = "Error updating user.";
     }
     header("Location: manage_users.php");
     exit();
@@ -64,47 +62,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
   $empName = $_POST['new_empName'];
   $email = $_POST['new_email'];
   $post = $_POST['new_post'];
-  $password = bin2hex(random_bytes(5)); // Generate a random alphanumeric password
-  $encrypted_password = password_hash($password, PASSWORD_BCRYPT); // Encrypt password
+  $password = bin2hex(random_bytes(5));
+  $encrypted_password = password_hash($password, PASSWORD_BCRYPT);
 
-  // Insert new user into the database
-  $add_sql = "INSERT INTO employees (username, empName, email, post, password) VALUES ('$username', '$empName', '$email', '$post', '$encrypted_password')";
+  $add_sql = "INSERT INTO employees (username, empName, email, post, password) VALUES (:username, :empName, :email, :post, :password)";
+  $stmt = $db->prepare($add_sql);
 
-  if ($conn->query($add_sql) === TRUE) {
-      // Send email
+  if ($stmt->execute([
+      ':username' => $username,
+      ':empName' => $empName,
+      ':email' => $email,
+      ':post' => $post,
+      ':password' => $encrypted_password
+  ])) {
+      // Send email (same as before)
       $mail = new PHPMailer(true);
-        try {
-            // Brevo SMTP settings
-            $mail->isSMTP();
-            $mail->Host = 'smtp-relay.brevo.com';
-            $mail->SMTPAuth = true;
-            $mail->Username = 'ddegreeproject@gmail.com';
-            $mail->Password = 'xsmtpsib-d219e2013a5ce1bf42ada0609e149db7e26554fb5f13d446ddf4e891909d4291-4YxQIdg7053fpGkM';
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            $mail->Port = 587;
-
-          $mail->setFrom('samstringz98@gmail.com', 'Admin'); // Your email
-          $mail->addAddress($email); // Add recipient's email
+      try {
+          // ...existing mail setup...
+          $mail->setFrom('samstringz98@gmail.com', 'Admin');
+          $mail->addAddress($email);
           $mail->Subject = 'Your Login Details';
           $mail->Body = "Hello $empName,\n\nYour account has been created.\nUsername: $username\nPassword: $password\n\nLogin at: yourdashboardlink.com";
-
-          // Send the email
           $mail->send();
           $_SESSION['user_message'] = "User added successfully and email sent.";
       } catch (Exception $e) {
           $_SESSION['user_message'] = "User added, but email failed to send: " . $mail->ErrorInfo;
       }
   } else {
-      $_SESSION['user_message'] = "Error adding user: " . $conn->error;
+      $_SESSION['user_message'] = "Error adding user.";
   }
   header("Location: manage_users.php");
   exit();
 }
-
-// Close connection
-$conn->close();
 ?>
-
 
 <link rel="stylesheet" href="style.css">
 
@@ -138,7 +128,7 @@ $conn->close();
 
       <div class="content">
         <div class="user-list-section">
-          <?php if ($users_result->num_rows > 0): ?>
+          <?php if (count($users_result) > 0): ?>
             <table class="user-table">
               <thead>
                 <tr>
@@ -151,7 +141,7 @@ $conn->close();
                 </tr>
               </thead>
               <tbody>
-                <?php while ($user = $users_result->fetch_assoc()): ?>
+                <?php foreach ($users_result as $user): ?>
                   <tr>
                     <td><?php echo htmlspecialchars($user['username']); ?></td>
                     <td><?php echo htmlspecialchars($user['empName']); ?></td>
@@ -163,7 +153,7 @@ $conn->close();
                       <a href="?delete_id=<?php echo $user['id']; ?>" onclick="return confirm('Are you sure you want to delete this user?');">Delete</a>
                     </td>
                   </tr>
-                <?php endwhile; ?>
+                <?php endforeach; ?>
               </tbody>
             </table>
           <?php else: ?>

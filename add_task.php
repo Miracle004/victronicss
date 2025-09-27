@@ -2,17 +2,7 @@
 session_start();
 
 // Database connection
-$servername = "localhost"; 
-$db_username = "root"; 
-$db_password = ""; 
-$dbname = "employment"; 
-
-$conn = new mysqli($servername, $db_username, $db_password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -21,13 +11,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Validate inputs
     if (!empty($task_description) && !empty($assigned_to)) {
-        // Insert task into the database
-        $sql = "INSERT INTO tasks (task_description, assigned_to, status) VALUES ('$task_description', '$assigned_to', 'pending')";
-        
-        if ($conn->query($sql) === TRUE) {
+        // Insert task into the database using PDO
+        $sql = "INSERT INTO tasks (task_description, assigned_to, status) VALUES (:task_description, :assigned_to, 'pending')";
+        $stmt = $db->prepare($sql);
+        if ($stmt->execute([
+            ':task_description' => $task_description,
+            ':assigned_to' => $assigned_to
+        ])) {
             $_SESSION['task_add_message'] = "Task added successfully!";
         } else {
-            $_SESSION['task_add_message'] = "Error: " . $conn->error;
+            $_SESSION['task_add_message'] = "Error: " . implode(", ", $stmt->errorInfo());
         }
     } else {
         $_SESSION['task_add_message'] = "Please fill in all fields.";
@@ -38,11 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit();
 }
 
-// Fetch all employees from the database for the "assigned to" dropdown
+// Fetch all employees from the database for the "assigned to" dropdown using PDO
 $sql_employees = "SELECT username, empName FROM employees";
-$employees_result = $conn->query($sql_employees);
-
-$conn->close();
+$stmt_employees = $db->query($sql_employees);
+$employees_result = $stmt_employees->fetchAll(PDO::FETCH_ASSOC);
 ?>
 
 <!DOCTYPE html>
@@ -75,12 +67,12 @@ $conn->close();
                 <label for="assigned_to">Assign to:</label>
                 <select id="assigned_to" name="assigned_to" required>
                     <option value="">Select a user</option>
-                    <?php if ($employees_result->num_rows > 0): ?>
-                        <?php while ($employee = $employees_result->fetch_assoc()): ?>
+                    <?php if (count($employees_result) > 0): ?>
+                        <?php foreach ($employees_result as $employee): ?>
                             <option value="<?php echo htmlspecialchars($employee['username']); ?>">
                                 <?php echo htmlspecialchars($employee['empName']); ?> (<?php echo htmlspecialchars($employee['username']); ?>)
                             </option>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     <?php else: ?>
                         <option value="">No users found</option>
                     <?php endif; ?>
@@ -91,6 +83,7 @@ $conn->close();
             </div>
         </form>
     </div>
+
 
 <!-- Style for the form -->
 <style>

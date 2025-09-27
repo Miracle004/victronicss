@@ -1,47 +1,27 @@
 <?php
-// Start session
 session_start();
-
-// Database connection
-$servername = "localhost";
-$db_username = "root";
-$db_password = "";
-$dbname = "employment";
-
-// Create connection
-$conn = new mysqli($servername, $db_username, $db_password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 // Check if form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['username'];
     $password = $_POST['password'];
 
-    // SQL query to check if user exists
-    $sql = "SELECT * FROM employees WHERE username = '$username'";
-    $result = $conn->query($sql);
+    $sql = "SELECT * FROM employees WHERE username = :username";
+    $stmt = $db->prepare($sql);
+    $stmt->execute([':username' => $username]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($result->num_rows > 0) {
-        // Fetch the user data
-        $row = $result->fetch_assoc();
-
-        // Verify the password
+    if ($row) {
         if (password_verify($password, $row['password'])) {
-            // Password is correct, set session and redirect based on role
             $_SESSION['username'] = $username;
             $_SESSION['login_success'] = true;
-
-            // Check user role and redirect accordingly
             if ($row['post'] === 'admin') {
                 header("Location: admin_dashboard.php");
             } else {
                 header("Location: home.php");
             }
-            exit; // Important to stop script execution after redirect
+            exit;
         } else {
             echo "Invalid password!";
         }
@@ -49,8 +29,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         echo "No user found with that username!";
     }
 }
-
-$conn->close();
 ?>
 
 <!-- Login form remains the same -->

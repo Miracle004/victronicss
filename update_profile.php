@@ -1,17 +1,7 @@
 <?php
 session_start();
 // Database connection
-$servername = "localhost"; 
-$db_username = "root"; 
-$db_password = ""; 
-$dbname = "employment"; 
-
-$conn = new mysqli($servername, $db_username, $db_password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 // Assuming user is logged in and username is stored in session
 $current_user = $_SESSION['username'];
@@ -19,8 +9,8 @@ $current_user = $_SESSION['username'];
 // Check if the form is submitted
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     // Get the updated email and phone
-    $email = $conn->real_escape_string($_POST['email']);
-    $phone = $conn->real_escape_string($_POST['phone']);
+    $email = $_POST['email'];
+    $phone = $_POST['phone'];
     
     // Profile picture upload logic
     $profile_picture = $_FILES['profile_picture']['name'];
@@ -59,11 +49,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             // Attempt to upload the file
             if (move_uploaded_file($_FILES["profile_picture"]["tmp_name"], $target_file)) {
                 // Update the profile picture in the database
-                $sql = "UPDATE employees SET profile_picture='$target_file' WHERE username='$current_user'";
-                if ($conn->query($sql) === TRUE) {
+                $sql = "UPDATE employees SET profile_picture=:profile_picture WHERE username=:username";
+                $stmt = $db->prepare($sql);
+                if ($stmt->execute([':profile_picture' => $target_file, ':username' => $current_user])) {
                     echo "Profile picture updated successfully.";
                 } else {
-                    echo "Error updating profile picture: " . $conn->error;
+                    echo "Error updating profile picture.";
                 }
             } else {
                 echo "Sorry, there was an error uploading your file.";
@@ -72,17 +63,14 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     }
 
     // Update email and phone in the database
-    $sql = "UPDATE employees SET email='$email', phone='$phone' WHERE username='$current_user'";
-    
-    if ($conn->query($sql) === TRUE) {
+    $sql = "UPDATE employees SET email=:email, phone=:phone WHERE username=:username";
+    $stmt = $db->prepare($sql);
+    if ($stmt->execute([':email' => $email, ':phone' => $phone, ':username' => $current_user])) {
         echo "Profile updated successfully.";
-        // Redirect back to profile page (you can set a success message here)
         header("Location: profile.php");
         exit();
     } else {
-        echo "Error updating profile: " . $conn->error;
+        echo "Error updating profile.";
     }
 }
-
-$conn->close();
 ?>

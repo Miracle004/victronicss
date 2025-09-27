@@ -1,16 +1,5 @@
 <?php
-// Database connection
-$servername = "localhost";
-$username = "root";
-$password = "";
-$dbname = "employment";
-
-$conn = new mysqli($servername, $username, $password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 // Handling the form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
@@ -23,28 +12,29 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $username = $_POST['username'];
     $password = $_POST['password'];
 
-    // Validate required fields
     if (empty($empName) || empty($empId) || empty($department) || empty($email) || empty($phone) || empty($joiningDate) || empty($username) || empty($password)) {
         die("All fields are required.");
     }
 
-    // Hash the password
     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
-    // Prepared statement to prevent SQL injection
-    $stmt = $conn->prepare("INSERT INTO employees (empName, empId, department, email, phone, joiningDate, username, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssssssss", $empName, $empId, $department, $email, $phone, $joiningDate, $username, $hashedPassword);
-
-    if ($stmt->execute()) {
+    $sql = "INSERT INTO employees (empName, empId, department, email, phone, joiningDate, username, password) VALUES (:empName, :empId, :department, :email, :phone, :joiningDate, :username, :password)";
+    $stmt = $db->prepare($sql);
+    if ($stmt->execute([
+        ':empName' => $empName,
+        ':empId' => $empId,
+        ':department' => $department,
+        ':email' => $email,
+        ':phone' => $phone,
+        ':joiningDate' => $joiningDate,
+        ':username' => $username,
+        ':password' => $hashedPassword
+    ])) {
         echo "New employee added successfully";
     } else {
-        echo "Error: " . $stmt->error;
+        echo "Error: " . implode(", ", $stmt->errorInfo());
     }
-
-    $stmt->close();
 }
-
-$conn->close();
 ?>
 
 

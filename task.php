@@ -1,33 +1,25 @@
 <?php
 session_start();
-// Database connection
-$servername = "localhost"; 
-$db_username = "root"; 
-$db_password = ""; 
-$dbname = "employment"; 
-
-$conn = new mysqli($servername, $db_username, $db_password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 // Assuming user is logged in and username is stored in session
 $current_user = $_SESSION['username'];
 
 // Fetch the user's full name from the database
-$sql = "SELECT empName FROM employees WHERE username = '$current_user'";
-$result = $conn->query($sql);
-$user_full_name = 'John Doe'; // Default value in case no result
-if ($result->num_rows > 0) {
-    $row = $result->fetch_assoc();
+$sql = "SELECT empName FROM employees WHERE username = :username";
+$stmt = $db->prepare($sql);
+$stmt->execute([':username' => $current_user]);
+$user_full_name = 'John Doe';
+if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $user_full_name = $row['empName'];
 }
 
 // Fetch tasks assigned to the user from the database
-$sql_tasks = "SELECT task_id, task_description, status FROM tasks WHERE assigned_to = '$current_user'";
-$tasks_result = $conn->query($sql_tasks);
+$sql_tasks = "SELECT task_id, task_description, status FROM tasks WHERE assigned_to = :username";
+$stmt_tasks = $db->prepare($sql_tasks);
+$stmt_tasks->execute([':username' => $current_user]);
+$tasks_result = $stmt_tasks->fetchAll(PDO::FETCH_ASSOC);
+
 
 // Handle task status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -35,20 +27,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action']; // Either 'accept' or 'reject'
 
     if ($action === 'accept') {
-        $update_sql = "UPDATE tasks SET status = 'accepted' WHERE task_id = $task_id AND assigned_to = '$current_user'";
-        $conn->query($update_sql);
+        $update_sql = "UPDATE tasks SET status = 'accepted' WHERE task_id = :task_id AND assigned_to = :username";
+        $stmt_update = $db->prepare($update_sql);
+        $stmt_update->execute([':task_id' => $task_id, ':username' => $current_user]);
         $_SESSION['task_message'] = "Task accepted successfully.";
     } elseif ($action === 'reject') {
-        $update_sql = "UPDATE tasks SET status = 'rejected' WHERE task_id = $task_id AND assigned_to = '$current_user'";
-        $conn->query($update_sql);
+        $update_sql = "UPDATE tasks SET status = 'rejected' WHERE task_id = :task_id AND assigned_to = :username";
+        $stmt_update = $db->prepare($update_sql);
+        $stmt_update->execute([':task_id' => $task_id, ':username' => $current_user]);
         $_SESSION['task_message'] = "Task rejected.";
     }
 
-    header("Location: home.php"); // Redirect to prevent resubmission on refresh
+    header("Location: home.php");
     exit();
 }
-
-$conn->close();
 ?>
 
 <link rel="stylesheet" href="style.css">
@@ -108,7 +100,7 @@ $conn->close();
 
       <div class="content">
         <!-- Display tasks if any -->
-        <?php if ($tasks_result->num_rows > 0): ?>
+        <?php if (count($tasks_result) > 0): ?>
           <table class="task-table">
             <thead>
               <tr>
@@ -118,7 +110,7 @@ $conn->close();
               </tr>
             </thead>
             <tbody>
-              <?php while ($task = $tasks_result->fetch_assoc()): ?>
+              <?php  foreach ($tasks_result as $task): ?>
                 <tr>
                   <td><?php echo htmlspecialchars($task['task_description']); ?></td>
                   <td><?php echo htmlspecialchars($task['status']); ?></td>
@@ -134,7 +126,7 @@ $conn->close();
                     <?php endif; ?>
                   </td>
                 </tr>
-              <?php endwhile; ?>
+              <?php endforeach; ?>
             </tbody>
           </table>
         <?php else: ?>

@@ -1,39 +1,27 @@
 <?php
 session_start();
-// Database connection
-$servername = "localhost"; 
-$db_username = "root"; 
-$db_password = ""; 
-$dbname = "employment"; 
-
-$conn = new mysqli($servername, $db_username, $db_password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 // Assuming user is logged in and username is stored in session
-$current_user = $_SESSION['username']; 
+$current_user = $_SESSION['username'];
 
 // Fetch the user's full name from the database
-$sql = "SELECT empName FROM employees WHERE username = '$current_user'";
-$result = $conn->query($sql);
-$user_full_name = 'John Doe'; // Default value in case no result
-if ($result->num_rows > 0) {
-    $row = $result->fetch_assoc();
+$sql = "SELECT empName FROM employees WHERE username = :username";
+$stmt = $db->prepare($sql);
+$stmt->execute([':username' => $current_user]);
+$user_full_name = 'John Doe';
+if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
     $user_full_name = $row['empName'];
 }
 
-// Fetch user messages from the database (example query)
-$sql_messages = "SELECT sender, message, sent_at FROM messages WHERE recipient = '$current_user' ORDER BY sent_at DESC";
-$messages_result = $conn->query($sql_messages);
+// Fetch user messages from the database
+$sql_messages = "SELECT sender, message, sent_at FROM messages WHERE recipient = :username ORDER BY sent_at DESC";
+$stmt_messages = $db->prepare($sql_messages);
+$stmt_messages->execute([':username' => $current_user]);
+$messages_result = $stmt_messages->fetchAll(PDO::FETCH_ASSOC);
 
-// Flag for displaying toast message
 $login_success = isset($_SESSION['login_success']) ? $_SESSION['login_success'] : false;
-unset($_SESSION['login_success']); // Clear the flag after using it
-
-$conn->close();
+unset($_SESSION['login_success']);
 ?>
 
 <link rel="stylesheet" href="style.css">

@@ -1,45 +1,27 @@
 <?php
 session_start();
-// Database connection
-$servername = "localhost"; 
-$db_username = "root"; 
-$db_password = ""; 
-$dbname = "employment"; 
-
-$conn = new mysqli($servername, $db_username, $db_password, $dbname);
-
-// Check connection
-if ($conn->connect_error) {
-    die("Connection failed: " . $conn->connect_error);
-}
+require_once 'db_conn.php';
 
 // Assuming user is logged in and username is stored in session
 $current_user = $_SESSION['username'];
 
 // Fetch the user's details from the database
-$sql = "SELECT empName, department, email, phone, username, joiningDate, profile_picture FROM employees WHERE username = '$current_user'";
-$result = $conn->query($sql);
-
-// Check if the query was successful
-if (!$result) {
-    die("Error fetching user details: " . $conn->error);
-}
-
+$sql = "SELECT empName, department, email, phone, username, joiningDate, profile_picture FROM employees WHERE username = :username";
+$stmt = $db->prepare($sql);
+$stmt->execute([':username' => $current_user]);
 $user_details = [
-    'empName' => 'John Doe',  // Default values in case no result
+    'empName' => 'John Doe',
     'department' => 'N/A',
     'email' => 'N/A',
     'phone' => 'N/A',
     'username' => 'N/A',
     'joiningDate' => 'N/A',
-    'profile_picture' => 'default.jpg' // Default profile picture
+    'profile_picture' => 'default.jpg'
 ];
 
-if ($result->num_rows > 0) {
-    $user_details = $result->fetch_assoc();
+if ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+    $user_details = $row;
 }
-
-$conn->close();
 ?>
 
 <link rel="stylesheet" href="style.css">

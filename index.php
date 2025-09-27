@@ -1,6 +1,9 @@
 <?php
 require_once 'db_conn.php';
 
+$signup_message = '';
+$signup_success = false;
+
 // Handling the form submission
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $empName = $_POST['empName'];
@@ -13,8 +16,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $password = $_POST['password'];
 
     if (empty($empName) || empty($empId) || empty($department) || empty($email) || empty($phone) || empty($joiningDate) || empty($username) || empty($password)) {
-        die("All fields are required.");
-    }
+        $signup_message = "All fields are required.";
+    }else{
 
     $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
 
@@ -30,10 +33,12 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         ':username' => $username,
         ':password' => $hashedPassword
     ])) {
-        echo "New employee added successfully";
+        $signup_message = "Signup successful! Redirecting to login page...";
+        $signup_success = true;
     } else {
-        echo "Error: " . implode(", ", $stmt->errorInfo());
+        $signup_message = "Error: " . implode(", ", $stmt->errorInfo());
     }
+}
 }
 ?>
 
@@ -46,8 +51,51 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Employee Management - Victronics Limited</title>
     <link rel="stylesheet" type="text/css" href="style.css">
+ <style>
+        .notification {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: #4CAF50;
+            color: white;
+            text-align: center;
+            padding: 15px 0;
+            font-size: 18px;
+            z-index: 9999;
+        }
+            .notification.error {
+            background: #f44336;
+        }
+        .btn {
+            width: 1000px;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+    </style>
+     <?php if ($signup_success): ?>
+    <script>
+        setTimeout(function() {
+            window.location.href = "login.php";
+        }, 3000);
+    </script>
+    <?php endif; ?>
 </head>
 <body>
+     <?php if ($signup_message): ?>
+        <div class="notification<?php echo $signup_success ? '' : ' error'; ?>">
+            <?php echo htmlspecialchars($signup_message); ?>
+        </div>
+    <?php endif; ?>
+    
     <div class="container">
         <h1>Employee Management - Victronics Limited</h1>
 
